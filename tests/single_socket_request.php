@@ -8,7 +8,7 @@ storeLinkStatics();
 function storeLinkStatics(): void
 {
     $socketHost = '127.0.0.1';
-    $socketPort = 8100;
+    $socketPort = 8101;
     $context = stream_context_create([
         'socket' => [
             'timeout' => 1 ,
@@ -19,9 +19,9 @@ function storeLinkStatics(): void
         die("Error: $errstr ($errno)\n");
     }
     $linkStatics = [
-        'ua' => 'USER_AGENT' ,
-        'client_ip' => 'CLIENT_IP' ,
-        'url' => 'PURE_URL' ,
+        'ua' => 'Mozilla/5.0 (Linux; Android 13; SM-S901B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36' ,
+        'client_ip' => '2.185.145.157' ,
+        'url' => 'https://basalam.com/cart' ,
     ];
     $requestData = json_encode($linkStatics);
     fwrite($socket, $requestData);

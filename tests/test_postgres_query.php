@@ -19,7 +19,7 @@ const POSTGRES_POOL_SIZE = 64;
 
 $cli = new CliPrinter();
 
-\Swoole\Coroutine::create(function () use ($cli) {
+\Swoole\Coroutine::create(function () {
     $connectionConfig = [
         'host' => DATABASE_HOST,
         'port' => DATABASE_PORT,
@@ -40,8 +40,10 @@ $cli = new CliPrinter();
         'created_at' => (new DateTime('now'))->format('Y-m-d H:i:s') ,
     ];
 
-    $manager = new PostgresConnectionManager($connectionConfig, $requestData);
-    for ($queryId = 1 ; $queryId <= 10000 ; $queryId ++){
+    $manager = new PostgresConnectionManager($connectionConfig);
+    $manager->initializeConnections();
+
+    for ($queryId = 1 ; $queryId <= 2 ; $queryId ++){
 
         \Swoole\Coroutine::create(function () use ($manager , $requestData){
             $pg = $manager->channel->pop();
