@@ -1,29 +1,34 @@
 <?php
 
+
+
 require __DIR__ . '/vendor/autoload.php';
 
+
 /*
- * Config base swoole coroutines
+ * Socket Server Information
  */
-Swoole\Coroutine::set([
-    'max_coroutine' => 1000000,
-    'aio_worker_num' => 2
-]);
+const SOCKET_SERVER_HOST = '127.0.0.1';
+const SOCKET_SERVER_PORT = 8100;
 
 
+/*
+ * Database Information
+ */
+const DATABASE_HOST = '127.0.0.1';
+const DATABASE_PORT = 5432;
+const DATABASE_NAME = 'api_test';
+const DATABASE_CHARSET = 'utf8';
+const DATABASE_USERNAME = 'postgres';
+const DATABASE_PASSWORD = 'password';
+const POSTGRES_POOL_SIZE = 64;
+const LINKS_TABLE = 'links_statics';
 
-use App\RequestSender;
 
+/*
+ * Create new instance of the swoole postgres proxy
+ *
+ */
 
-
-\Swoole\Coroutine::create(function (){
-
-    $requestSender = RequestSender::create()
-        ->setHost(host: "api.amir")
-        ->requestCount(10000)
-        ->setUri('/admin/auth/login')
-        ->setPoolConfig(poolSize: 100 , connectionCount: 90)
-        ->start();
-
-});
-
+$app = new App\Application();
+$app->run();

@@ -6,7 +6,9 @@
     "ext-swoole": "*",
     "ext-pdo": "*",
     "ext-pcntl": "*",
-    "ext-posix": "*"
+    "ext-posix": "*",
+    "josantonius/cli-printer": "^1.0",
+    "ua-parser/uap-php": "*"
   },
   "autoload": {
     "psr-4": {
