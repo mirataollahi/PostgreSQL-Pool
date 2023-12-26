@@ -3,7 +3,6 @@ namespace App;
 
 use DateTime;
 use Swoole\Coroutine;
-use Swoole\Server;
 use Swoole\Runtime;
 use Swoole\Server as SwooleServer;
 
