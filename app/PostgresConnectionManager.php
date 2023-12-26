@@ -2,14 +2,16 @@
 
 namespace App;
 
+use PDO;
 use Swoole\Coroutine\Channel;
-use Swoole\Coroutine\PostgreSQL;
 
 class PostgresConnectionManager
 {
     public Channel $channel;
     private array $connectionConfig;
     private CliLogger $cliPrinter;
+
+    private static int $connectionCount = 0 ;
 
 
     public function __construct(array $connectionConfig)
@@ -21,54 +23,48 @@ class PostgresConnectionManager
 
     public function initializeConnections(): void
     {
-
-        for ($i = 0; $i < 64; $i++) {
-            $pg = new PostgreSQL();
-            $PGConnection = $pg->connect(
-                $this->buildConnectionString($this->connectionConfig)
-            );
-
-            if (!$PGConnection) {
-                $this->cliPrinter->display('critical' , "Failed to connect to PostgreSQL: {$pg->error}");
-            }
-            $this->channel->push($pg);
+        for ($i = 0; $i < 16; $i++) {
+            $pdo = $this->make();
+            $this->channel->push($pdo);
+            static::$connectionCount++;
         }
     }
 
-    public function saveLinkStatics($requestData = [] , string $tableName = 'links_statics'): void
+    public function make(): PDO
     {
-        $pg = new PostgreSQL();
-        $PGConnection = $pg->connect(
-            $this->buildConnectionString($this->connectionConfig)
+        return new PDO(
+            "pgsql:host={$this->connectionConfig['host']};port={$this->connectionConfig['port']};dbname={$this->connectionConfig['dbname']};user={$this->connectionConfig['user']};password={$this->connectionConfig['password']}",
+            $this->connectionConfig['user'],
+            $this->connectionConfig['password']
         );
+    }
+
+    public function saveLinkStatics( $requestData = [] , string $tableName = 'links_statics'): void
+    {
+        if (static::$connectionCount === 0)
+            $this->initializeConnections();
 
 
+        $pdo = $this->channel->pop();
         try {
-            $stmt = $pg->prepare("INSERT INTO {$tableName} (os,os_version,browser,browser_version,client_ip,base_url,url_path,full_url,created_at) VALUES ($1, $2, $3,$4,$5,$6,$7,$8,$9)");
-            $result = $stmt->execute([
-                $requestData['os'],
-                $requestData['os_version'],
-                $requestData['browser'] ,
-                $requestData['browser_version'] ,
-                $requestData['client_ip'] ,
-                $requestData['base_url'] ,
-                $requestData['url_path'] ,
-                $requestData['full_url'] ,
-                $requestData['created_at']
-            ]);
-            if (!$result) {
-                $this->cliPrinter->display('critical' , "Failed to insert data: {$pg->error}");
-            }
+            $stmt = $pdo->prepare("INSERT INTO " . $tableName . " (os, os_version, browser, browser_version, client_ip, base_url, url_path, full_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->bindParam(1, $requestData['os']);
+            $stmt->bindParam(2, $requestData['os_version']);
+            $stmt->bindParam(3, $requestData['browser']);
+            $stmt->bindParam(4, $requestData['browser_version']);
+            $stmt->bindParam(5, $requestData['client_ip']);
+            $stmt->bindParam(6, $requestData['base_url']);
+            $stmt->bindParam(7, $requestData['url_path']);
+            $stmt->bindParam(8, $requestData['full_url']);
+            $stmt->bindParam(9, $requestData['created_at']);
+            $stmt->execute();
+            $this->cliPrinter->display('debug' , "Like statics saved");
         }
         catch (\Exception $exception)
         {
             $this->cliPrinter->display('critical' , $exception->getMessage());
+        } finally {
+            $this->channel->push($pdo);
         }
     }
-
-    private function buildConnectionString(array $config): string
-    {
-        return "host={$config['host']};port={$config['port']};dbname={$config['dbname']};user={$config['user']};password={$config['password']}";
-    }
-
 }

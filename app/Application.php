@@ -119,9 +119,6 @@ class Application
     public function run(): void
     {
         if (!$this->serverStarted) {
-//            $coId  = Coroutine::create(function (){
-//                $this->postgresPool->initializeConnections();
-//            });
             Runtime::enableCoroutine();
             $this->socketServer->start();
             $this->serverStarted = true;
