@@ -55,72 +55,20 @@ class Application
     private function init(): void
     {
         $this->cli = new CliLogger();
-
         $this->makeSocketServer();
         $this->postgresPool = new PostgresConnectionManager();
 
-
         /*
-         * On socket server received request event
+         * Define socket server events
          */
-        $this->socketServer->on('receive', function (SwooleServer $server, $fd, $reactor_id, $data)  {
-            $this->handleReceivedRequest($data , $fd);
-            $server->send($fd, json_encode(['status' => true]));
-        });
-        /*
-         * On socket server started event
-         */
-        $this->socketServer->on('start', function () {
-            $this->cli->display('info', "TCP Socket Server started at " . $this->socketServer->host . ':' . $this->socketServer->port);
-        });
-        /*
-         * On socket server client connected event
-         */
-        $this->socketServer->on('connect', function ($server, $fd) {
-            $this->cli->display("info", "New client connection with id: #{$fd}");
-        });
-        /*
-         * On socket client connection closed event
-         */
-        $this->socketServer->on('close', function (Server $server , $fd) {
-            $this->cli->display('info', "Client connection closed with id #{$fd}");
-        });
-    }
+        $this->socketServer->on('receive', [$this, 'onReceive']);
 
-    /**
-     * Handler received new message contain link statics event
-     *
-     * @param mixed $data
-     * @param int|string|null $clientId
-     * @return void
-     */
-    public function handleReceivedRequest(mixed $data , int|string|null $clientId = null): void
-    {
-        $this->cli->display('info', "New message form socket client #{$clientId}");
-        $clientData = json_decode($data , true);
-        $userAgent = UserAgent::create($clientData['ua'] ?? null);
+        $this->socketServer->on('start', [$this, 'onStart']);
 
-        $urlParser = UrlHelper::toArray($clientData['url'] ?? null);
-        $trimmed_url = trim(($urlParser['host'] ?? null) ?: ($urlParser['path'] ?? null), " \t\n\r\0\x0B/‌‍");
-        $finalUrl = strtolower($trimmed_url);
-        $urlPath = strtolower(trim(
-            empty(($urlParser['host'] ?? null)) ? '' : ($urlParser['path'] ?? null), " \t\n\r\0\x0B/‌‍"
-        ));
+        $this->socketServer->on('connect', [$this, 'onConnect']);
 
-        Coroutine::create(function () use ($clientData , $userAgent , $finalUrl , $urlPath){
-            $requestData = [
-                'os' => $userAgent->osFamily,
-                'os_version' => $userAgent->osMajor,
-                'browser' => $userAgent->agentFamily,
-                'browser_version' => $userAgent->agentVersion,
-                'client_ip' => $clientData['client_ip'] ?? null,
-                'base_url' => $finalUrl,
-                'url_path' => $urlPath,
-                'full_url' => $clientData['url'] ?? null,
-                'created_at' => (new DateTime('now'))->format('Y-m-d H:i:s') ,
-            ];
-            $this->postgresPool->saveLinkStatics($requestData);
-        });
+        $this->socketServer->on('close', [$this, 'onClose']);
+
     }
 
 
@@ -153,5 +101,81 @@ class Application
             $this->cli->display("warning", "Server is already running and cannot be started again.");
         }
     }
+
+    /**
+     * Handle the received request data from a socket client.
+     * Convert the URL string in the client data into an associative array
+     *
+     * @param SwooleServer $server
+     * @param int $fd
+     * @param int $reactorId
+     * @param string $data
+     * @return void
+     */
+    public function onReceive(SwooleServer $server, int $fd, int $reactorId, string $data): void
+    {
+        $this->cli->display('info', "New message form socket client #{$fd}");
+        $clientData = json_decode($data , true);
+
+        $userAgent = UserAgent::create($clientData['ua'] ?? null);
+        $urlParser = UrlHelper::toArray($clientData['url'] ?? null);
+
+
+        Coroutine::create(function () use ($clientData , $userAgent , $urlParser){
+            $requestData = [
+                'os' => $userAgent->osFamily,
+                'os_version' => $userAgent->osMajor,
+                'browser' => $userAgent->agentFamily,
+                'browser_version' => $userAgent->agentVersion,
+                'client_ip' => $clientData['client_ip'] ?? null,
+                'base_url' => $urlParser['base_url'],
+                'url_path' => $urlParser['url_path'],
+                'full_url' => $urlParser['pure_url'],
+                'created_at' => (new DateTime('now'))->format('Y-m-d H:i:s') ,
+            ];
+            $this->postgresPool->saveLinkStatics($requestData);
+        });
+        $server->send($fd, json_encode(['status' => true]));
+    }
+
+    /**
+     * Handle the event when the TCP socket server starts.
+     *
+     * @return void
+     */
+    public function onStart(): void
+    {
+        // Display information when the TCP socket server starts.
+        $this->cli->display('info', "TCP Socket Server started at " . $this->socketServer->host . ':' . $this->socketServer->port);
+    }
+
+    /**
+     * Handle the event when a new client connects to the TCP socket server.
+     *
+     * @param SwooleServer $server The server instance.
+     * @param int    $fd     The file descriptor (ID) of the new client connection.
+     *
+     * @return void
+     */
+    public function onConnect(SwooleServer $server, int $fd): void
+    {
+        // Display information about a new client connection.
+        $this->cli->display("info", "New client connection with id: #{$fd}");
+    }
+
+    /**
+     * Handle the event when a client connection is closed on the TCP socket server.
+     *
+     * @param SwooleServer $server The server instance.
+     * @param int    $fd     The file descriptor (ID) of the closed client connection.
+     *
+     * @return void
+     */
+    public function onClose(SwooleServer $server, int $fd): void
+    {
+        // Display information when a client connection is closed.
+        $this->cli->display('info', "Client connection closed with id #{$fd}");
+    }
+
 }
 

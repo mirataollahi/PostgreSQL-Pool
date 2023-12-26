@@ -5,6 +5,9 @@ namespace App;
 
 class UrlHelper
 {
+    private const DEFAULT_PORT_HTTP = 80;
+    private const DEFAULT_PORT_HTTPS = 443;
+
 
     /**
      * @var string The scheme (e.g., "http", "https").
@@ -65,19 +68,29 @@ class UrlHelper
      */
     public static function toArray(?string $url = null): array
     {
-        $obj = new self($url);
+        $urlParser = new self($url);
+        $port = ($urlParser->port !== self::DEFAULT_PORT_HTTP && $urlParser->port !== self::DEFAULT_PORT_HTTPS) ? ':' . $urlParser->port : '';
+        $pass = isset($urlParser->pass) ? ':' . $urlParser->pass : '';
+        $pass = ($urlParser->user || $pass) ? "$pass@" : '';
+        $trimmedUrl = trim(($urlParser->host ?? null) ?: ($urlParser->path ?? null), " \t\n\r\0\x0B/‌‍");
+        $urlPath = strtolower(trim(
+            empty(($urlParser->host ?? null)) ? '' : ($urlParser->path ?? null), " \t\n\r\0\x0B/‌‍"
+        ));
 
-        $scheme = ($obj->scheme ?? 'http://');
-        $host = $obj->host ?? '';
-        $port = (isset($obj->port) and $obj->port != 80 and $obj->port != 443) ? ':' . $obj->port : '';
-        $user = $obj->user ?? '';
-        $pass = isset($obj->pass) ? ':' . $obj->pass : '';
-        $pass = ($user || $pass) ? "$pass@" : '';
-        $path = $obj->path ?? '';
-        $query = isset($obj->query) ? '?' . $obj->query : '';
-        $fragment = isset($obj->fragment) ? '#' . $obj->fragment : '';
-
-        return compact('scheme', 'user', 'pass', 'host', 'port', 'path', 'query', 'fragment');
+        return [
+            'pure_url' => $url ,
+            'scheme' => ($urlParser->scheme ?? 'http://') ,
+            'user' => $urlParser->user ?? '',
+            'pass' => $pass,
+            'host' => $urlParser->host ?? '',
+            'port' => $port,
+            'path' => $urlParser->path ?? '',
+            'query' => $urlParser->query ? '?' . $urlParser->query : '',
+            'fragment' => $urlParser->fragment ? '#' . $urlParser->fragment : '',
+            'trimmed_url' => $trimmedUrl ,
+            'base_url' => strtolower($trimmedUrl) ,
+            'url_path' => $urlPath ,
+        ];
     }
 
     /**

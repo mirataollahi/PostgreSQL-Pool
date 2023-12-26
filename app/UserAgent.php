@@ -8,16 +8,13 @@ use UAParser\Result\Client;
 class UserAgent
 {
     private Client $components;
-
     public ?string $originalUserAgent = null;
-
     public ?string $agent = null;
     public ?string $agentFamily = null;
     public ?string $agentMajor = null;
     public ?string $agentMinor = null;
     public ?string $agentPatch = null;
     public ?string $agentVersion = null;
-
     public ?string $os = null;
     public ?string $osFamily = null;
     public ?string $osMajor = null;
