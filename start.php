@@ -22,8 +22,8 @@ const DATABASE_NAME = 'search';
 const DATABASE_CHARSET = 'utf8';
 const DATABASE_USERNAME = 'postgres';
 const DATABASE_PASSWORD = 'password';
-const DATABASE_SCHEMA = 'amir';
-const POSTGRES_POOL_SIZE = 64;
+const DATABASE_SCHEMA = 'public';
+const POSTGRES_POOL_SIZE = 16;
 const LINKS_TABLE = 'links_statics';
 
 const IS_PRODUCTION = false;
