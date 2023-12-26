@@ -8,7 +8,7 @@ use Swoole\Coroutine\WaitGroup;
 
 
 
-const REQUEST_COUNT = 10000;
+const REQUEST_COUNT = 2000;
 
 
 $cli = new CliPrinter();
@@ -21,7 +21,7 @@ for ($requestId = 1 ; $requestId <= REQUEST_COUNT ;$requestId++)
     \Swoole\Coroutine::create(function () use ($cli , $isRunning , $sentRequestCounter , $receivedRequestCounter) {
         $isRunning->add(1);
         $socketHost = '127.0.0.1';
-        $socketPort = 8100;
+        $socketPort = 8101;
         $sentRequestCounter->add(1);
         $context = stream_context_create();
         $socket = stream_socket_client("tcp://$socketHost:$socketPort", $errno, $errstr, 30, STREAM_CLIENT_CONNECT, $context);
@@ -29,8 +29,14 @@ for ($requestId = 1 ; $requestId <= REQUEST_COUNT ;$requestId++)
             die("Error: $errstr ($errno)\n");
         }
         $cli->display('notice' , "Connected to $socketHost:$socketPort");
-        $message = "Hello, Server!";
-        fwrite($socket, $message);
+        $linkStatics = [
+            'ua' => 'Mozilla/5.0 (Linux; Android 13; SM-S901B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36' ,
+            'client_ip' => '2.185.145.157' ,
+            'url' => 'https://basalam.com/cart' ,
+        ];
+        $requestData = json_encode($linkStatics);
+
+        fwrite($socket, $requestData);
         $response = fread($socket, 4096);
         if ($response)
             $receivedRequestCounter->add(1);

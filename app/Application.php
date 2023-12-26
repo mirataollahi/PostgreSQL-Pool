@@ -5,6 +5,7 @@ namespace App;
 
 use DateTime;
 use Swoole\Coroutine;
+use Swoole\Database\PDOPool;
 use Swoole\Server;
 use Swoole\Runtime;
 use Swoole\Server as SwooleServer;
@@ -54,12 +55,16 @@ class Application
             $this->cli->display('info', "New message form socket client #{$fd}");
             $clientData = json_decode($data , true);
             $userAgent = UserAgent::create($clientData['ua'] ?? null);
+
+
             $urlParser = UrlHelper::toArray($clientData['url'] ?? null);
             $trimmed_url = trim(($urlParser['host'] ?? null) ?: ($urlParser['path'] ?? null), " \t\n\r\0\x0B/‌‍");
             $finalUrl = strtolower($trimmed_url);
             $urlPath = strtolower(trim(
                 empty(($urlParser['host'] ?? null)) ? '' : ($urlParser['path'] ?? null), " \t\n\r\0\x0B/‌‍"
             ));
+
+
             Coroutine::create(function () use ($clientData , $userAgent , $finalUrl , $urlPath){
 
                 $requestData = [
@@ -74,9 +79,9 @@ class Application
                     'created_at' => (new DateTime('now'))->format('Y-m-d H:i:s') ,
                 ];
 
-                $pg = $this->postgresPool->channel->pop();
-                $this->postgresPool->saveLinkStatics($pg ,$requestData , LINKS_TABLE);
-                $this->postgresPool->channel->push($pg);
+                // $pg = $this->postgresPool->channel->pop();
+                $this->postgresPool->saveLinkStatics($requestData , LINKS_TABLE);
+                // $this->postgresPool->channel->push($pg);
             });
 
             $response = ['status' => true];
@@ -123,10 +128,6 @@ class Application
         } else {
             $this->cli->display("warning", "Server is already running and cannot be started again.");
         }
-
-
-
-
     }
 }
 

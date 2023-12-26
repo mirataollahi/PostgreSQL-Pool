@@ -26,19 +26,19 @@ class UserAgent
     public ?string $osVersion = null;
 
 
-    public function __construct(string $userAgent)
+    public function __construct(?string $userAgent = null)
     {
         $parser = Parser::create();
-        $this->components = $parser->parse($userAgent);
+        $this->components = $parser->parse($userAgent ?: '');
     }
 
     /**
      * Create a new instance of the userAgent statically
      *
-     * @param string $userAgent
+     * @param ?string $userAgent
      * @return $this
      */
-    public static function create(string $userAgent): static
+    public static function create(?string $userAgent = null): static
     {
         $userAgentInstance = new self($userAgent);
         $userAgentInstance->init();

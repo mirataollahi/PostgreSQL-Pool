@@ -51,19 +51,19 @@ class UrlHelper
      */
     protected string $original;
 
-    public function __construct(string $parsed_url)
+    public function __construct(?string $parsed_url = null)
     {
-        $this->init($parsed_url);
+        $this->init($parsed_url ?: '');
     }
 
     /**
      * Convert the URL components of the given URL string into an associative array.
      *
-     * @param string $url The URL string to be converted into an array.
+     * @param ?string $url The URL string to be converted into an array.
      *
      * @return array An associative array containing URL components.
      */
-    public static function toArray(string $url): array
+    public static function toArray(?string $url = null): array
     {
         $obj = new self($url);
 

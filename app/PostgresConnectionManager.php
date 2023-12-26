@@ -35,8 +35,14 @@ class PostgresConnectionManager
         }
     }
 
-    public function saveLinkStatics(PostgreSQL $pg, $requestData = [] , string $tableName = 'links_statics'): void
+    public function saveLinkStatics($requestData = [] , string $tableName = 'links_statics'): void
     {
+        $pg = new PostgreSQL();
+        $PGConnection = $pg->connect(
+            $this->buildConnectionString($this->connectionConfig)
+        );
+
+
         try {
             $stmt = $pg->prepare("INSERT INTO {$tableName} (os,os_version,browser,browser_version,client_ip,base_url,url_path,full_url,created_at) VALUES ($1, $2, $3,$4,$5,$6,$7,$8,$9)");
             $result = $stmt->execute([
