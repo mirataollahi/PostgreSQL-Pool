@@ -1,14 +1,15 @@
 <?php
 
+require __DIR__ . '/../vendor/autoload.php';
 
+use App\Config;
 
 storeLinkStatics();
 
-
 function storeLinkStatics(): void
 {
-    $socketHost = '127.0.0.1';
-    $socketPort = 8101;
+    $socketHost = Config::get('SOCKET_SERVER_HOST' , '127.0.0.1');
+    $socketPort = Config::get('SOCKET_SERVER_PORT' , 8100);
     $context = stream_context_create([
         'socket' => [
             'timeout' => 1 ,

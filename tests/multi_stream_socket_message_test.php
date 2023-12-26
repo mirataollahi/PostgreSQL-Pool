@@ -1,14 +1,13 @@
 <?php
 
 require __DIR__ . '/../vendor/autoload.php';
-
+use App\Config;
 use Josantonius\CliPrinter\CliPrinter;
 use Swoole\Atomic;
 use Swoole\Coroutine\WaitGroup;
 
 
-
-const REQUEST_COUNT = 1000000;
+const REQUEST_COUNT = 10;
 
 
 $cli = new CliPrinter();
@@ -20,8 +19,8 @@ for ($requestId = 1 ; $requestId <= REQUEST_COUNT ;$requestId++)
 {
     \Swoole\Coroutine::create(function () use ($cli , $isRunning , $sentRequestCounter , $receivedRequestCounter) {
         $isRunning->add(1);
-        $socketHost = '127.0.0.1';
-        $socketPort = 8101;
+        $socketHost = Config::get('SOCKET_SERVER_HOST' , '127.0.0.1');
+        $socketPort = Config::get('SOCKET_SERVER_PORT' , '127.0.0.1');
         $sentRequestCounter->add(1);
         $context = stream_context_create();
         $socket = stream_socket_client("tcp://$socketHost:$socketPort", $errno, $errstr, 30, STREAM_CLIENT_CONNECT, $context);

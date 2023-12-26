@@ -55,6 +55,7 @@ class Application
     private function init(): void
     {
         $this->cli = new CliLogger();
+
         $this->makeSocketServer();
         $this->postgresPool = new PostgresConnectionManager();
 
@@ -131,9 +132,9 @@ class Application
     public function makeSocketServer(): void
     {
         $socketHost = Config::get('SOCKET_SERVER_HOST' , '127.0.0.1');
-        $socketPort = Config::get('SOCKET_SERVER_PORT' , '8100');
+        $socketPort = Config::get('SOCKET_SERVER_PORT' , 8100);
         $workerNumber = Config::get('SOCKET_WORKER_NUMBER' , 1);
-        $this->socketServer = new SwooleServer($socketHost, $socketPort);
+        $this->socketServer = new SwooleServer($socketHost, (int)$socketPort);
         $this->socketServer->set(['worker_num' => $workerNumber]);
     }
 

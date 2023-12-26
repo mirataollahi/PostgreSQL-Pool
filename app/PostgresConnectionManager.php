@@ -7,8 +7,25 @@ use Swoole\Coroutine\Channel;
 
 class PostgresConnectionManager
 {
+    /**
+     * The database connections pool
+     *
+     * @var Channel
+     */
     public Channel $channel;
+
+    /**
+     * Command line logger service
+     *
+     * @var CliLogger
+     */
     private CliLogger $cliPrinter;
+
+    /**
+     * Current database connection numbers
+     *
+     * @var int
+     */
     private static int $connectionCount = 0 ;
 
 
@@ -18,6 +35,11 @@ class PostgresConnectionManager
         $this->channel = new Channel(64);
     }
 
+    /**
+     * Create Connections and push in connections channel (pool)
+     *
+     * @return void
+     */
     public function initializeConnections(): void
     {
         for ($i = 0; $i < 16; $i++) {
@@ -54,7 +76,6 @@ class PostgresConnectionManager
      * Store like statics in database using postgres channel
      *
      * @param array $requestData
-     * @param string $tableName
      * @return void
      */
     public function saveLinkStatics(array $requestData = []): void
