@@ -1,11 +1,8 @@
 <?php
-
 namespace App;
-
 
 use DateTime;
 use Swoole\Coroutine;
-use Swoole\Database\PDOPool;
 use Swoole\Server;
 use Swoole\Runtime;
 use Swoole\Server as SwooleServer;
@@ -16,9 +13,7 @@ class Application
     private SwooleServer $socketServer;
     private CliLogger $cli;
     private PostgresConnectionManager $postgresPool;
-
     private bool $serverStarted = false;
-
     public function __construct()
     {
         $this->cli = new CliLogger();
@@ -39,6 +34,7 @@ class Application
             'charset' => DATABASE_CHARSET,
             'user' => DATABASE_USERNAME,
             'password' => DATABASE_PASSWORD,
+            'schema' => DATABASE_SCHEMA,
         ];
 
         $this->socketServer = new SwooleServer(SOCKET_SERVER_HOST, SOCKET_SERVER_PORT);

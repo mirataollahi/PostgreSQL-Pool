@@ -58,6 +58,7 @@ $cli = new CliPrinter();
             try {
                 // Prepare an SQL statement for insertion
                 $stmt = $pdo->prepare("INSERT INTO " . LINKS_TABLE . " (os, os_version, browser, browser_version, client_ip, base_url, url_path, full_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
                 $stmt->bindParam(1, $requestData['os']);
                 $stmt->bindParam(2, $requestData['os_version']);
                 $stmt->bindParam(3, $requestData['browser']);
