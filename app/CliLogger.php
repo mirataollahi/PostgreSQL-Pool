@@ -19,7 +19,7 @@ class CliLogger extends CliPrinter
      */
     public function display(string $tagName, string $message, array $params = []): CliPrinter
     {
-        if (!IS_PRODUCTION)
+        if (Config::get('IS_PRODUCTION') === 'false')
             return parent::display($tagName, $message, $params);
         return $this;
     }

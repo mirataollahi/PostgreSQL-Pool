@@ -8,16 +8,14 @@ use Swoole\Coroutine\Channel;
 class PostgresConnectionManager
 {
     public Channel $channel;
-    private array $connectionConfig;
     private CliLogger $cliPrinter;
     private static int $connectionCount = 0 ;
 
 
-    public function __construct(array $connectionConfig)
+    public function __construct()
     {
         $this->cliPrinter = new CliLogger();
         $this->channel = new Channel(64);
-        $this->connectionConfig = $connectionConfig;
     }
 
     public function initializeConnections(): void
@@ -29,31 +27,54 @@ class PostgresConnectionManager
         }
     }
 
+    /**
+     * Make a pdo connection
+     *
+     * @return PDO
+     */
     public function make(): PDO
     {
+        $connectionConfig = [
+            'host' => Config::get('DATABASE_HOST'),
+            'port' => Config::get('DATABASE_PORT'),
+            'dbname' => Config::get('DATABASE_NAME'),
+            'charset' => Config::get('DATABASE_CHARSET'),
+            'user' => Config::get('DATABASE_USERNAME'),
+            'password' => Config::get('DATABASE_PASSWORD'),
+        ];
+
         return new PDO(
-            "pgsql:host={$this->connectionConfig['host']};port={$this->connectionConfig['port']};dbname={$this->connectionConfig['dbname']};user={$this->connectionConfig['user']};password={$this->connectionConfig['password']}",
-            $this->connectionConfig['user'],
-            $this->connectionConfig['password']
+            "pgsql:host={$connectionConfig['host']};port={$connectionConfig['port']};dbname={$connectionConfig['dbname']};user={$connectionConfig['user']};password={$connectionConfig['password']}",
+            $connectionConfig['user'],
+            $connectionConfig['password']
         );
     }
 
-    public function saveLinkStatics( $requestData = [] , string $tableName = 'links_statics'): void
+    /**
+     * Store like statics in database using postgres channel
+     *
+     * @param array $requestData
+     * @param string $tableName
+     * @return void
+     */
+    public function saveLinkStatics(array $requestData = []): void
     {
         if (static::$connectionCount === 0)
             $this->initializeConnections();
         $pdo = $this->channel->pop();
         try {
-            $stmt = $pdo->prepare("INSERT INTO " . DATABASE_SCHEMA . '.' . $tableName . " (os, os_version, browser, browser_version, client_ip, base_url, url_path, full_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $databaseSchema = Config::get('DATABASE_SCHEMA');
+            $linksTable = Config::get('LINKS_TABLE');
+            $stmt = $pdo->prepare("INSERT INTO $databaseSchema.$linksTable (os, os_version, browser, browser_version, client_ip, base_url, url_path, full_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->bindParam(1, $requestData['os']);
-            $stmt->bindParam(2, $requestData['os_version']);
+            $stmt->bindParam(2, $requestData['os_version'] );
             $stmt->bindParam(3, $requestData['browser']);
-            $stmt->bindParam(4, $requestData['browser_version']);
-            $stmt->bindParam(5, $requestData['client_ip']);
-            $stmt->bindParam(6, $requestData['base_url']);
-            $stmt->bindParam(7, $requestData['url_path']);
-            $stmt->bindParam(8, $requestData['full_url']);
-            $stmt->bindParam(9, $requestData['created_at']);
+            $stmt->bindParam(4, $requestData['browser_version'] );
+            $stmt->bindParam(5, $requestData['client_ip'] );
+            $stmt->bindParam(6, $requestData['base_url'] );
+            $stmt->bindParam(7, $requestData['url_path'] );
+            $stmt->bindParam(8, $requestData['full_url'] );
+            $stmt->bindParam(9, $requestData['created_at'] );
             $stmt->execute();
             $this->cliPrinter->display('debug' , "Like statics saved");
         }
