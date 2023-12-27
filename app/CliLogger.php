@@ -58,7 +58,7 @@ class CliLogger extends CliPrinter
         strtoupper(substr(PHP_OS, 0, 3)) === 'WIN' ? system('cls') : system('clear');
     }
 
-    public function showApplicationStatus(Application &$application): void
+    public function showApplicationStatus(SocketServer &$application): void
     {
         if ($this->isMonitoringEnable())
         {
