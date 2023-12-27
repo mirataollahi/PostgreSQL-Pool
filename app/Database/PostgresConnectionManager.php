@@ -14,7 +14,7 @@ class PostgresConnectionManager
      *
      * @var Channel
      */
-    public Channel $channel;
+    public Channel $pool;
 
     /**
      * Command line logger service
@@ -44,7 +44,7 @@ class PostgresConnectionManager
     public function __construct()
     {
         $this->cliPrinter = new CliLogger();
-        $this->channel = new Channel($this->maxSize);
+        $this->pool = new Channel($this->maxSize);
         $this->maxSize = (int) Config::get('POSTGRES_POOL_SIZE' , 16);
     }
 
@@ -67,10 +67,10 @@ class PostgresConnectionManager
      */
     public function getConnection(): PDO
     {
-        if ($this->channel->isEmpty() && $this->connectionCount < $this->maxSize) {
+        if ($this->pool->isEmpty() && $this->connectionCount < $this->maxSize) {
             $this->make();
         }
-        return $this->channel->pop($this->timeout);
+        return $this->pool->pop($this->timeout);
     }
 
     /**
@@ -82,7 +82,7 @@ class PostgresConnectionManager
     public function releaseConnection(PDO|null $connection = null): void
     {
         if ($connection !== null) {
-            $this->channel->push($connection);
+            $this->pool->push($connection);
         }
         else {
             /* connection broken */
@@ -112,7 +112,7 @@ class PostgresConnectionManager
             $connectionConfig['user'],
             $connectionConfig['password']
         );
-        $this->channel->push($pdo);
+        $this->pool->push($pdo);
         $this->connectionCount++;
     }
 
