@@ -1,7 +1,12 @@
 <?php
 
-namespace App;
+namespace App\Socket;
 
+use App\Core\Config;
+use App\Core\UrlHelper;
+use App\Core\UserAgent;
+use App\Database\PostgresConnectionManager;
+use App\Logger\CliLogger;
 use DateTime;
 use Swoole\Atomic;
 use Swoole\Coroutine;

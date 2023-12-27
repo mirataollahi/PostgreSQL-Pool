@@ -1,7 +1,9 @@
 <?php
 
-namespace App;
+namespace App\Logger;
 
+use App\Core\Config;
+use App\Socket\SocketServer;
 use Josantonius\CliPrinter\CliPrinter;
 
 class CliLogger extends CliPrinter

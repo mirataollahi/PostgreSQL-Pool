@@ -1,6 +1,6 @@
 <?php
 
-namespace App;
+namespace App\Core;
 
 use Dotenv\Dotenv;
 
@@ -14,7 +14,7 @@ class Config
     public static function init(): Dotenv
     {
         if (!isset(static::$envDriver)) {
-            $dotenv = Dotenv::createImmutable(__DIR__ . '/..');
+            $dotenv = Dotenv::createImmutable(BASE_PATH);
             $dotenv->load();
             static::$envDriver = $dotenv;
         }

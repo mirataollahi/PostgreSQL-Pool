@@ -1,9 +1,10 @@
 <?php
-
-use App\Config;
+const BASE_PATH = __DIR__ . '/../';
+use App\Core\Config;
 use Josantonius\CliPrinter\CliPrinter;
 use Swoole\Atomic;
 use Swoole\Coroutine\WaitGroup;
+
 require __DIR__ . "/../vendor/autoload.php";
 
 const REQUEST_COUNT = 100;

@@ -3,13 +3,11 @@
 require __DIR__ . '/vendor/autoload.php';
 
 
+const BASE_PATH = __DIR__;
 
 
 /*
  * Create new instance of the swoole postgres proxy
  *
  */
-
-Swoole\Runtime::enableCoroutine();
-$app = new App\Application();
-$app->run();
+new \App\Core\Application();

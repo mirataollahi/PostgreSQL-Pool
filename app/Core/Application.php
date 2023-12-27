@@ -1,7 +1,9 @@
 <?php
 
-namespace App;
+namespace App\Core;
 
+
+use App\Socket\SocketServer;
 
 class Application
 {

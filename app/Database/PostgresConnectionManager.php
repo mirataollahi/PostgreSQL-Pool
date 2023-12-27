@@ -1,7 +1,9 @@
 <?php
 
-namespace App;
+namespace App\Database;
 
+use App\Core\Config;
+use App\Logger\CliLogger;
 use PDO;
 use Swoole\Coroutine\Channel;
 

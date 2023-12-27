@@ -1,13 +1,14 @@
 <?php
-
+const BASE_PATH = __DIR__ . '/../';
 require __DIR__ . '/../vendor/autoload.php';
-use App\Config;
+
+use App\Core\Config;
 use Josantonius\CliPrinter\CliPrinter;
 use Swoole\Atomic;
 use Swoole\Coroutine\WaitGroup;
 
 
-const REQUEST_COUNT = 2000;
+const REQUEST_COUNT = 100;
 
 
 $cli = new CliPrinter();

@@ -1,5 +1,5 @@
 <?php
-
+const BASE_PATH = __DIR__ . '/../';
 use Josantonius\CliPrinter\CliPrinter;
 require __DIR__ . "/../vendor/autoload.php";
 ini_set('display_errors', true);
@@ -22,7 +22,7 @@ $cli = new CliPrinter();
         'full_url' => 'https://basalam.com/cart',
         'created_at' => (new DateTime('now'))->format('Y-m-d H:i:s') ,
     ];
-    $databaseManager = new \App\PostgresConnectionManager();
+    $databaseManager = new \App\Database\PostgresConnectionManager();
     for ($queryId = 1 ; $queryId <= 2 ; $queryId ++){
         \Swoole\Coroutine::create(function () use ($requestData , $databaseManager){
             try {
