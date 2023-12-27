@@ -23,4 +23,15 @@ class CliLogger extends CliPrinter
             return parent::display($tagName, $message, $params);
         return $this;
     }
+
+    /**
+     * Clear command line screen
+     *
+     * @return void
+     */
+    public function clearCommandLine(): void
+    {
+        echo "\033[2J\033[H";
+    }
+
 }
