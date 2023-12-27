@@ -45,6 +45,7 @@ $cli = new CliPrinter();
                 $client->send($requestData);
                 $cli->display('notice' , "Server response");
                 $receivedRequestCounter->add(1);
+                \Swoole\Coroutine::sleep(1);
                 $client->close();
                 $isRunning->done();
                 \Swoole\Coroutine::sleep(0.09);

@@ -2,6 +2,7 @@
 namespace App;
 
 use DateTime;
+use Swoole\Atomic;
 use Swoole\Coroutine;
 use Swoole\Runtime;
 use Swoole\Server as SwooleServer;
@@ -37,6 +38,12 @@ class Application
      */
     private bool $serverStarted = false;
 
+
+    public Atomic $receivedMessages ;
+    public Atomic $currentClients ;
+    public Atomic $allConnectedClients ;
+    public Atomic $allClosedClient ;
+
     /**
      * Create a new swoole socket server to store link statics
      *
@@ -56,6 +63,12 @@ class Application
         $this->cli = new CliLogger();
         $this->makeSocketServer();
         $this->postgresPool = new PostgresConnectionManager();
+
+        $this->receivedMessages = new Atomic(0);
+        $this->currentClients = new Atomic(0);
+        $this->allConnectedClients = new Atomic(0);
+        $this->allClosedClient = new Atomic(0);
+
 
         /*
          * Define socket server events
@@ -113,6 +126,7 @@ class Application
      */
     public function onReceive(SwooleServer $server, int $fd, int $reactorId, string $data): void
     {
+        $this->receivedMessages->add();
         $this->cli->display('info', "New message form socket client #{$fd}");
         $clientData = json_decode($data , true);
 
@@ -146,6 +160,10 @@ class Application
     {
         // Display information when the TCP socket server starts.
         $this->cli->display('info', "TCP Socket Server started at " . $this->socketServer->host . ':' . $this->socketServer->port);
+
+        Coroutine::create(function (){
+            $this->cli->showApplicationStatus($this);
+        });
     }
 
     /**
@@ -160,6 +178,8 @@ class Application
     {
         // Display information about a new client connection.
         $this->cli->display("info", "New client connection with id: #{$fd}");
+        $this->currentClients->add(1);
+        $this->allConnectedClients->add(1);
     }
 
     /**
@@ -174,6 +194,8 @@ class Application
     {
         // Display information when a client connection is closed.
         $this->cli->display('info', "Client connection closed with id #{$fd}");
+        $this->allClosedClient->add(1);
+        $this->currentClients->sub(1);
     }
 
 }

@@ -7,7 +7,7 @@ use Swoole\Atomic;
 use Swoole\Coroutine\WaitGroup;
 
 
-const REQUEST_COUNT = 1000;
+const REQUEST_COUNT = 2000;
 
 
 $cli = new CliPrinter();
