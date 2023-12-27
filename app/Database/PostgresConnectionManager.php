@@ -28,13 +28,24 @@ class PostgresConnectionManager
      *
      * @var int
      */
-    private static int $connectionCount = 0 ;
+    private int $connectionCount = 0 ;
+
+
+    private int|float $timeout = -1;
+
+    /**
+     * max connection pool size
+     *
+     * @var int
+     */
+    private int $maxSize = 16;
 
 
     public function __construct()
     {
         $this->cliPrinter = new CliLogger();
-        $this->channel = new Channel(64);
+        $this->channel = new Channel($this->maxSize);
+        $this->maxSize = (int) Config::get('POSTGRES_POOL_SIZE' , 16);
     }
 
     /**
@@ -44,19 +55,49 @@ class PostgresConnectionManager
      */
     public function initializeConnections(): void
     {
-        for ($i = 0; $i < 16; $i++) {
-            $pdo = $this->make();
-            $this->channel->push($pdo);
-            static::$connectionCount++;
+        while ($this->maxSize > $this->connectionCount) {
+            $this->make();
         }
     }
 
     /**
-     * Make a pdo connection
+     * Get a database connection before each transaction
      *
      * @return PDO
      */
-    public function make(): PDO
+    public function getConnection(): PDO
+    {
+        if ($this->channel->isEmpty() && $this->connectionCount < $this->maxSize) {
+            $this->make();
+        }
+        return $this->channel->pop($this->timeout);
+    }
+
+    /**
+     * Release database connection and put in connections pool
+     *
+     * @param PDO|null $connection
+     * @return void
+     */
+    public function releaseConnection(PDO|null $connection = null): void
+    {
+        if ($connection !== null) {
+            $this->channel->push($connection);
+        }
+        else {
+            /* connection broken */
+            $this->connectionCount -= 1;
+            $this->make();
+        }
+    }
+
+
+    /**
+     * Make a pdo connection and push to connections pool
+     *
+     * @return void
+     */
+    public function make(): void
     {
         $connectionConfig = [
             'host' => Config::get('DATABASE_HOST'),
@@ -66,12 +107,13 @@ class PostgresConnectionManager
             'user' => Config::get('DATABASE_USERNAME'),
             'password' => Config::get('DATABASE_PASSWORD'),
         ];
-
-        return new PDO(
+        $pdo = new PDO(
             "pgsql:host={$connectionConfig['host']};port={$connectionConfig['port']};dbname={$connectionConfig['dbname']};user={$connectionConfig['user']};password={$connectionConfig['password']}",
             $connectionConfig['user'],
             $connectionConfig['password']
         );
+        $this->channel->push($pdo);
+        $this->connectionCount++;
     }
 
     /**
@@ -82,9 +124,10 @@ class PostgresConnectionManager
      */
     public function saveLinkStatics(array $requestData = []): void
     {
-        if (static::$connectionCount === 0)
+        if ($this->connectionCount === 0)
             $this->initializeConnections();
-        $pdo = $this->channel->pop();
+        $pdo = $this->getConnection();
+
         try {
             $databaseSchema = Config::get('DATABASE_SCHEMA');
             $linksTable = Config::get('LINKS_TABLE');
@@ -101,11 +144,11 @@ class PostgresConnectionManager
             $stmt->execute();
             $this->cliPrinter->display('debug' , "Like statics saved");
         }
-        catch (\Exception $exception)
-        {
+        catch (\Exception $exception) {
             $this->cliPrinter->display('critical' , $exception->getMessage());
-        } finally {
-            $this->channel->push($pdo);
+        }
+        finally {
+            $this->releaseConnection($pdo);
         }
     }
 }
