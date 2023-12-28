@@ -56,4 +56,5 @@ $http->on('request', function ($request, $response)  {
     }
 });
 
+echo PHP_EOL . "\033[32mHttp server started on http://$httpHost:$httpPort \033[0m" . PHP_EOL;
 $http->start();

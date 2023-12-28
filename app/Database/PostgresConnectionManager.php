@@ -63,9 +63,9 @@ class PostgresConnectionManager
     /**
      * Get a database connection before each transaction
      *
-     * @return PDO|null
+     * @return PDO|bool|null
      */
-    public function getConnection(): PDO|null
+    public function getConnection(): PDO|null|bool
     {
         if ($this->pool->isEmpty() && $this->connectionCount < $this->maxSize) {
             $this->make();
