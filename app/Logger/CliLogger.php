@@ -74,6 +74,7 @@ class CliLogger extends CliPrinter
                 echo $blueColor . "Current Client Connections: " . $resetColor . $greenColor . $application->currentClients->get() . $resetColor . PHP_EOL;
                 echo $blueColor . "All Connected Clients: " . $resetColor . $greenColor . $application->allConnectedClients->get() . $resetColor . PHP_EOL;
                 echo $blueColor . "All Closed Client Connections: " . $resetColor . $greenColor . $application->allClosedClient->get() . $resetColor . PHP_EOL;
+                echo $blueColor . "Database Connection Count: " . $resetColor . $greenColor . $application->postgresPool->getConnectionCount() . $resetColor . PHP_EOL;
                 sleep(0.5);
             }
         }

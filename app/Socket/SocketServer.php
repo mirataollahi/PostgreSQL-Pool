@@ -56,7 +56,7 @@ class SocketServer
      *
      * @var PostgresConnectionManager
      */
-    private PostgresConnectionManager $postgresPool;
+    public PostgresConnectionManager $postgresPool;
 
     /**
      * Command line logger factory
@@ -185,31 +185,45 @@ class SocketServer
      */
     public function onReceive(SwooleServer $server, int $fd, int $reactorId, string $data): void
     {
-        $this->receivedMessages->add();
         $this->cli->display('info', "New message form socket client #{$fd}");
         $clientData = json_decode($data , true);
 
-        $userAgent = UserAgent::create($clientData['ua'] ?? null);
-        $urlParser = UrlHelper::toArray($clientData['url'] ?? null);
-
-
-        Coroutine::create(function () use ($clientData , $userAgent , $urlParser){
-            $requestData = [
-                'os' => $userAgent->osFamily,
-                'os_version' => $userAgent->osMajor,
-                'browser' => $userAgent->agentFamily,
-                'browser_version' => $userAgent->agentVersion,
-                'client_ip' => $clientData['client_ip'] ?? null,
-                'base_url' => $urlParser['base_url'],
-                'url_path' => $urlParser['url_path'],
-                'full_url' => $urlParser['pure_url'],
-                'created_at' => (new DateTime('now'))->format('Y-m-d H:i:s') ,
+        if (array_key_exists('monitor_client' , $clientData ?? []))
+        {
+            $response = [
+                'status' => true ,
+                'received_messages' => number_format($this?->receivedMessages->get() ?: 0) ,
+                'current_clients' => number_format($this->currentClients?->get() ?: 0) ,
+                'all_connected_clients' => number_format($this->allConnectedClients?->get() ?: 0) ,
+                'all_closed_client' => number_format($this->allClosedClient?->get() ?: 0) ,
+                'database_connection_count' => $this->postgresPool->getConnectionCount() ,
             ];
-            $this->postgresPool->saveLinkStatics($requestData);
-        });
-        $server->send($fd, json_encode(['status' => true]));
-    }
+        }
+        else {
+            $this->receivedMessages->add();
+            $userAgent = UserAgent::create($clientData['ua'] ?? null);
+            $urlParser = UrlHelper::toArray($clientData['url'] ?? null);
 
+
+            Coroutine::create(function () use ($clientData , $userAgent , $urlParser){
+                $requestData = [
+                    'os' => $userAgent->osFamily,
+                    'os_version' => $userAgent->osMajor,
+                    'browser' => $userAgent->agentFamily,
+                    'browser_version' => $userAgent->agentVersion,
+                    'client_ip' => $clientData['client_ip'] ?? null,
+                    'base_url' => $urlParser['base_url'],
+                    'url_path' => $urlParser['url_path'],
+                    'full_url' => $urlParser['pure_url'],
+                    'created_at' => (new DateTime('now'))->format('Y-m-d H:i:s') ,
+                ];
+                $this->postgresPool->saveLinkStatics($requestData);
+            });
+            $response = ['status' => true];
+        }
+
+        $server->send($fd, json_encode($response));
+    }
 
     /**
      * Start the socket server and binding in network

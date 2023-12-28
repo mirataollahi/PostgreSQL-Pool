@@ -70,7 +70,17 @@ class PostgresConnectionManager
         if ($this->pool->isEmpty() && $this->connectionCount < $this->maxSize) {
             $this->make();
         }
-        return $this->pool->pop($this->timeout);
+        $connection = $this->pool->pop($this->timeout);
+
+        // Check if the connection is still valid
+        if ($this->isConnectionValid($connection)) {
+            return $connection;
+        } else {
+            sleep(5);
+            $this->connectionCount--;
+            $this->make();
+            return $this->pool->pop($this->timeout);
+        }
     }
 
     /**
@@ -107,13 +117,25 @@ class PostgresConnectionManager
             'user' => Config::get('DATABASE_USERNAME'),
             'password' => Config::get('DATABASE_PASSWORD'),
         ];
-        $pdo = new PDO(
-            "pgsql:host={$connectionConfig['host']};port={$connectionConfig['port']};dbname={$connectionConfig['dbname']};user={$connectionConfig['user']};password={$connectionConfig['password']}",
-            $connectionConfig['user'],
-            $connectionConfig['password']
-        );
-        $this->pool->push($pdo);
-        $this->connectionCount++;
+
+        try {
+            $pdo = new PDO(
+                "pgsql:host={$connectionConfig['host']};port={$connectionConfig['port']};dbname={$connectionConfig['dbname']};user={$connectionConfig['user']};password={$connectionConfig['password']}",
+                $connectionConfig['user'],
+                $connectionConfig['password']
+            );
+
+            $this->pool->push($pdo);
+            $this->connectionCount++;
+        }
+
+        catch (\Exception $exception)
+        {
+            $this->cliPrinter->display('critical' , $exception->getMessage());
+        }
+
+
+
     }
 
     /**
@@ -150,5 +172,24 @@ class PostgresConnectionManager
         finally {
             $this->releaseConnection($pdo);
         }
+    }
+
+    /**
+     * Get current pdo connection count
+     *
+     * @return int
+     */
+    public function getConnectionCount(): int
+    {
+        return $this->connectionCount;
+    }
+
+    /**
+     * @param PDO|null $connection
+     * @return bool
+     */
+    private function isConnectionValid(PDO|null $connection): bool
+    {
+        return $connection instanceof PDO && $connection->getAttribute(PDO::ATTR_CONNECTION_STATUS) === 'Connection OK';
     }
 }
