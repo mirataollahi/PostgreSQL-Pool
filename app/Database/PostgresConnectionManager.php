@@ -63,24 +63,14 @@ class PostgresConnectionManager
     /**
      * Get a database connection before each transaction
      *
-     * @return PDO
+     * @return PDO|null
      */
-    public function getConnection(): PDO
+    public function getConnection(): PDO|null
     {
         if ($this->pool->isEmpty() && $this->connectionCount < $this->maxSize) {
             $this->make();
         }
-        $connection = $this->pool->pop($this->timeout);
-
-        // Check if the connection is still valid
-        if ($this->isConnectionValid($connection)) {
-            return $connection;
-        } else {
-            sleep(5);
-            $this->connectionCount--;
-            $this->make();
-            return $this->pool->pop($this->timeout);
-        }
+        return $this->pool->pop(3);
     }
 
     /**
@@ -131,11 +121,9 @@ class PostgresConnectionManager
 
         catch (\Exception $exception)
         {
+            sleep(5);
             $this->cliPrinter->display('critical' , $exception->getMessage());
         }
-
-
-
     }
 
     /**
@@ -146,31 +134,43 @@ class PostgresConnectionManager
      */
     public function saveLinkStatics(array $requestData = []): void
     {
-        if ($this->connectionCount === 0)
-            $this->initializeConnections();
+
         $pdo = $this->getConnection();
 
-        try {
-            $databaseSchema = Config::get('DATABASE_SCHEMA');
-            $linksTable = Config::get('LINKS_TABLE');
-            $stmt = $pdo->prepare("INSERT INTO $databaseSchema.$linksTable (os, os_version, browser, browser_version, client_ip, base_url, url_path, full_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bindParam(1, $requestData['os']);
-            $stmt->bindParam(2, $requestData['os_version'] );
-            $stmt->bindParam(3, $requestData['browser']);
-            $stmt->bindParam(4, $requestData['browser_version'] );
-            $stmt->bindParam(5, $requestData['client_ip'] );
-            $stmt->bindParam(6, $requestData['base_url'] );
-            $stmt->bindParam(7, $requestData['url_path'] );
-            $stmt->bindParam(8, $requestData['full_url'] );
-            $stmt->bindParam(9, $requestData['created_at'] );
-            $stmt->execute();
-            $this->cliPrinter->display('debug' , "Like statics saved");
-        }
-        catch (\Exception $exception) {
-            $this->cliPrinter->display('critical' , $exception->getMessage());
-        }
-        finally {
-            $this->releaseConnection($pdo);
+        if ($pdo)
+        {
+            try {
+                $databaseSchema = Config::get('DATABASE_SCHEMA');
+                $linksTable = Config::get('LINKS_TABLE');
+                $stmt = $pdo->prepare("INSERT INTO $databaseSchema.$linksTable (os, os_version, browser, browser_version, client_ip, base_url, url_path, full_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->bindParam(1, $requestData['os']);
+                $stmt->bindParam(2, $requestData['os_version'] );
+                $stmt->bindParam(3, $requestData['browser']);
+                $stmt->bindParam(4, $requestData['browser_version'] );
+                $stmt->bindParam(5, $requestData['client_ip'] );
+                $stmt->bindParam(6, $requestData['base_url'] );
+                $stmt->bindParam(7, $requestData['url_path'] );
+                $stmt->bindParam(8, $requestData['full_url'] );
+                $stmt->bindParam(9, $requestData['created_at'] );
+                $isSaved = $stmt->execute();
+                $this->cliPrinter->display('debug' , "Like statics saved");
+            }
+
+            catch (\Exception $exception) {
+                $this->cliPrinter->display('critical' , $exception->getMessage());
+                $isSaved = false;
+            }
+
+            finally {
+
+                if ( (!$this->isConnectionValid($pdo))  && (!$isSaved) )
+                {
+                    unset($pdo);
+                    $this->connectionCount--;
+                }
+                else
+                    $this->releaseConnection($pdo);
+            }
         }
     }
 
@@ -190,6 +190,15 @@ class PostgresConnectionManager
      */
     private function isConnectionValid(PDO|null $connection): bool
     {
-        return $connection instanceof PDO && $connection->getAttribute(PDO::ATTR_CONNECTION_STATUS) === 'Connection OK';
+        // return $connection instanceof PDO && $connection->getAttribute(PDO::ATTR_CONNECTION_STATUS) === 'Connection OK';
+        try {
+            $result = $connection->query('SELECT 1');
+            return (bool) $result;
+        }
+        catch (\Exception $exception)
+        {
+            return false;
+        }
+
     }
 }

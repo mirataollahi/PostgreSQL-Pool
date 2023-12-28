@@ -20,28 +20,28 @@ class SocketServer
      *
      * @var Atomic
      */
-    public Atomic $receivedMessages ;
+    public Atomic $receivedMessages;
 
     /**
      * Current online client in the socket server
      *
      * @var Atomic
      */
-    public Atomic $currentClients ;
+    public Atomic $currentClients;
 
     /**
      * Socket server all connected client connection
      *
      * @var Atomic
      */
-    public Atomic $allConnectedClients ;
+    public Atomic $allConnectedClients;
 
     /**
      * Socket server all closed client connection
      *
      * @var Atomic
      */
-    public Atomic $allClosedClient ;
+    public Atomic $allClosedClient;
 
     /**
      * Socket server running status
@@ -117,9 +117,9 @@ class SocketServer
      */
     public function makeSocketServer(): static
     {
-        $socketHost = Config::get('SOCKET_SERVER_HOST' , '127.0.0.1');
-        $socketPort = Config::get('SOCKET_SERVER_PORT' , 8100);
-        $workerNumber = Config::get('SOCKET_WORKER_NUMBER' , 1);
+        $socketHost = Config::get('SOCKET_SERVER_HOST', '127.0.0.1');
+        $socketPort = Config::get('SOCKET_SERVER_PORT', 8100);
+        $workerNumber = Config::get('SOCKET_WORKER_NUMBER', 1);
         $this->socketDriver = new SwooleServer($socketHost, (int)$socketPort);
         $this->socketDriver->set(['worker_num' => $workerNumber]);
         return $this;
@@ -132,10 +132,11 @@ class SocketServer
      */
     public function onStart(): void
     {
+        $this->postgresPool->initializeConnections();
         // Display information when the TCP socket server starts.
         $this->cli->display('info', "TCP Socket Server started at " . $this->socketDriver->host . ':' . $this->socketDriver->port);
 
-        Coroutine::create(function (){
+        Coroutine::create(function () {
             $this->cli->showApplicationStatus($this);
         });
     }
@@ -144,7 +145,7 @@ class SocketServer
      * Handle the event when a new client connects to the TCP socket server.
      *
      * @param SwooleServer $server The server instance.
-     * @param int    $fd     The file descriptor (ID) of the new client connection.
+     * @param int $fd The file descriptor (ID) of the new client connection.
      *
      * @return void
      */
@@ -160,7 +161,7 @@ class SocketServer
      * Handle the event when a client connection is closed on the TCP socket server.
      *
      * @param SwooleServer $server The server instance.
-     * @param int    $fd     The file descriptor (ID) of the closed client connection.
+     * @param int $fd The file descriptor (ID) of the closed client connection.
      *
      * @return void
      */
@@ -186,43 +187,46 @@ class SocketServer
     public function onReceive(SwooleServer $server, int $fd, int $reactorId, string $data): void
     {
         $this->cli->display('info', "New message form socket client #{$fd}");
-        $clientData = json_decode($data , true);
+        $clientData = json_decode($data, true);
 
-        if (array_key_exists('monitor_client' , $clientData ?? []))
-        {
-            $response = [
-                'status' => true ,
-                'received_messages' => number_format($this?->receivedMessages->get() ?: 0) ,
-                'current_clients' => number_format($this->currentClients?->get() ?: 0) ,
-                'all_connected_clients' => number_format($this->allConnectedClients?->get() ?: 0) ,
-                'all_closed_client' => number_format($this->allClosedClient?->get() ?: 0) ,
-                'database_connection_count' => $this->postgresPool->getConnectionCount() ,
-            ];
-        }
-        else {
+        $response = $this->makeResponse($clientData);
+        $server->send($fd, json_encode($response));
+
+        Coroutine::create(function () use ($clientData) {
             $this->receivedMessages->add();
             $userAgent = UserAgent::create($clientData['ua'] ?? null);
             $urlParser = UrlHelper::toArray($clientData['url'] ?? null);
+            $requestData = [
+                'os' => $userAgent->osFamily,
+                'os_version' => $userAgent->osMajor,
+                'browser' => $userAgent->agentFamily,
+                'browser_version' => $userAgent->agentVersion,
+                'client_ip' => $clientData['client_ip'] ?? null,
+                'base_url' => $urlParser['base_url'],
+                'url_path' => $urlParser['url_path'],
+                'full_url' => $urlParser['pure_url'],
+                'created_at' => (new DateTime('now'))->format('Y-m-d H:i:s'),
+            ];
+            $this->postgresPool->saveLinkStatics($requestData);
+        });
+    }
 
-
-            Coroutine::create(function () use ($clientData , $userAgent , $urlParser){
-                $requestData = [
-                    'os' => $userAgent->osFamily,
-                    'os_version' => $userAgent->osMajor,
-                    'browser' => $userAgent->agentFamily,
-                    'browser_version' => $userAgent->agentVersion,
-                    'client_ip' => $clientData['client_ip'] ?? null,
-                    'base_url' => $urlParser['base_url'],
-                    'url_path' => $urlParser['url_path'],
-                    'full_url' => $urlParser['pure_url'],
-                    'created_at' => (new DateTime('now'))->format('Y-m-d H:i:s') ,
-                ];
-                $this->postgresPool->saveLinkStatics($requestData);
-            });
-            $response = ['status' => true];
-        }
-
-        $server->send($fd, json_encode($response));
+    public function makeResponse(mixed $clientData = []): array
+    {
+        if (array_key_exists('monitor_client', $clientData ?? [])) {
+            $response = [
+                'status' => true,
+                'received_messages' => number_format($this?->receivedMessages->get() ?: 0),
+                'current_clients' => number_format($this->currentClients?->get() ?: 0),
+                'all_connected_clients' => number_format($this->allConnectedClients?->get() ?: 0),
+                'all_closed_client' => number_format($this->allClosedClient?->get() ?: 0),
+                'database_connection_count' => $this->postgresPool->getConnectionCount(),
+            ];
+        } else
+            $response = [
+                'status' => true,
+            ];
+        return $response;
     }
 
     /**
