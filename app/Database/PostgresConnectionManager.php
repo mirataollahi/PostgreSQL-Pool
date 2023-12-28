@@ -5,6 +5,7 @@ namespace App\Database;
 use App\Core\Config;
 use App\Logger\CliLogger;
 use PDO;
+use Swoole\Atomic;
 use Swoole\Coroutine\Channel;
 
 class PostgresConnectionManager
@@ -41,11 +42,18 @@ class PostgresConnectionManager
     private int $maxSize = 16;
 
 
+    public Atomic $allQuery;
+    public Atomic $successQuery;
+    public Atomic $failQuery;
+
     public function __construct()
     {
         $this->cliPrinter = new CliLogger();
         $this->pool = new Channel($this->maxSize);
         $this->maxSize = (int) Config::get('POSTGRES_POOL_SIZE' , 16);
+        $this->allQuery = new Atomic(0);
+        $this->successQuery = new Atomic(0);
+        $this->failQuery = new Atomic(0);
     }
 
     /**
@@ -138,7 +146,7 @@ class PostgresConnectionManager
      */
     public function saveLinkStatics(array $requestData = []): void
     {
-
+        $this->allQuery->add();
         $pdo = $this->getConnection();
 
         if ($pdo)
@@ -157,12 +165,15 @@ class PostgresConnectionManager
                 $stmt->bindParam(8, $requestData['full_url'] );
                 $stmt->bindParam(9, $requestData['created_at'] );
                 $isSaved = $stmt->execute();
+                if ($isSaved)
+                    $this->successQuery->add();
                 $this->cliPrinter->display('debug' , "Like statics saved");
             }
 
             catch (\Exception $exception) {
                 $this->cliPrinter->display('critical' , $exception->getMessage());
                 $isSaved = false;
+                $this->failQuery->add();
             }
 
             finally {
@@ -176,6 +187,8 @@ class PostgresConnectionManager
                     $this->releaseConnection($pdo);
             }
         }
+        else
+            $this->failQuery->add();
     }
 
     /**
