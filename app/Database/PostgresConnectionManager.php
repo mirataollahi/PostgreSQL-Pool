@@ -67,6 +67,10 @@ class PostgresConnectionManager
      */
     public function getConnection(): PDO|null|bool
     {
+        if ($this->connectionCount === 0)
+        {
+            $this->initializeConnections();
+        }
         if ($this->pool->isEmpty() && $this->connectionCount < $this->maxSize) {
             $this->make();
         }
