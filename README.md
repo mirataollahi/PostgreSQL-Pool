@@ -66,4 +66,11 @@ cp .env.example .env
 php start.php
 ```
 
+<br>
+<br>
 
+### Start Monitoring Dashboard
+
+```php
+php dashboard/start_dashboard.php
+```
