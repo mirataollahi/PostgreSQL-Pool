@@ -127,7 +127,7 @@ class PostgresConnectionManager
                 $connectionConfig['password']
             );
 
-            $this->pool->push($pdo);
+            $this->pool->push($pdo , 3);
             $this->connectionCount++;
         }
 

@@ -192,28 +192,32 @@ class SocketServer
         $response = $this->makeResponse($clientData);
         $server->send($fd, json_encode($response));
 
-        Coroutine::create(function () use ($clientData) {
-            $this->receivedMessages->add();
-            $userAgent = UserAgent::create($clientData['ua'] ?? null);
-            $urlParser = UrlHelper::toArray($clientData['url'] ?? null);
-            $requestData = [
-                'os' => $userAgent->osFamily,
-                'os_version' => $userAgent->osMajor,
-                'browser' => $userAgent->agentFamily,
-                'browser_version' => $userAgent->agentVersion,
-                'client_ip' => $clientData['client_ip'] ?? null,
-                'base_url' => $urlParser['base_url'],
-                'url_path' => $urlParser['url_path'],
-                'full_url' => $urlParser['pure_url'],
-                'created_at' => (new DateTime('now'))->format('Y-m-d H:i:s'),
-            ];
-            $this->postgresPool->saveLinkStatics($requestData);
-        });
+
+        if (!$clientData['monitor_client']) {
+            Coroutine::create(function () use ($clientData) {
+                $this->receivedMessages->add();
+                $userAgent = UserAgent::create($clientData['ua'] ?? null);
+                $urlParser = UrlHelper::toArray($clientData['url'] ?? null);
+                $requestData = [
+                    'os' => $userAgent->osFamily,
+                    'os_version' => $userAgent->osMajor,
+                    'browser' => $userAgent->agentFamily,
+                    'browser_version' => $userAgent->agentVersion,
+                    'client_ip' => $clientData['client_ip'] ?? null,
+                    'base_url' => $urlParser['base_url'],
+                    'url_path' => $urlParser['url_path'],
+                    'full_url' => $urlParser['pure_url'],
+                    'created_at' => (new DateTime('now'))->format('Y-m-d H:i:s'),
+                ];
+                $this->postgresPool->saveLinkStatics($requestData);
+            });
+        }
     }
 
     public function makeResponse(mixed $clientData = []): array
     {
         if (array_key_exists('monitor_client', $clientData ?? [])) {
+
             $response = [
                 'status' => true,
                 'received_messages' => number_format($this?->receivedMessages->get() ?: 0),
@@ -222,10 +226,7 @@ class SocketServer
                 'all_closed_client' => number_format($this->allClosedClient?->get() ?: 0),
                 'database_connection_count' => $this->postgresPool->getConnectionCount(),
             ];
-        } else
-            $response = [
-                'status' => true,
-            ];
+        } else $response = ['status' => true,];
         return $response;
     }
 
