@@ -91,7 +91,6 @@ class SocketServer
         $this->currentClients = new Atomic(0);
         $this->allConnectedClients = new Atomic(0);
         $this->allClosedClient = new Atomic(0);
-
         return $this->setEvents();
     }
 
@@ -193,7 +192,7 @@ class SocketServer
         $server->send($fd, json_encode($response));
 
 
-        if (!$clientData['monitor_client']) {
+        if (!($clientData['monitor_client'] ?? false)) {
             Coroutine::create(function () use ($clientData) {
                 $this->receivedMessages->add();
                 $userAgent = UserAgent::create($clientData['ua'] ?? null);
@@ -225,6 +224,9 @@ class SocketServer
                 'all_connected_clients' => number_format($this->allConnectedClients?->get() ?: 0),
                 'all_closed_client' => number_format($this->allClosedClient?->get() ?: 0),
                 'database_connection_count' => $this->postgresPool->getConnectionCount(),
+                'all_queries' => $this->postgresPool->allQuery->get(),
+                'successful_queries' => $this->postgresPool->successQuery->get(),
+                'failed_queries' => $this->postgresPool->failQuery->get(),
             ];
         } else $response = ['status' => true,];
         return $response;

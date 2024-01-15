@@ -165,15 +165,18 @@ class PostgresConnectionManager
                 $stmt->bindParam(8, $requestData['full_url'] );
                 $stmt->bindParam(9, $requestData['created_at'] );
                 $isSaved = $stmt->execute();
-                if ($isSaved)
+                if ($isSaved) {
+                    $this->cliPrinter->display('debug', "Like statics saved");
                     $this->successQuery->add();
-                $this->cliPrinter->display('debug' , "Like statics saved");
+                    return;
+                }
             }
 
             catch (\Exception $exception) {
                 $this->cliPrinter->display('critical' , $exception->getMessage());
                 $isSaved = false;
                 $this->failQuery->add();
+                return;
             }
 
             finally {
@@ -187,8 +190,7 @@ class PostgresConnectionManager
                     $this->releaseConnection($pdo);
             }
         }
-        else
-            $this->failQuery->add();
+        else $this->failQuery->add();
     }
 
     /**

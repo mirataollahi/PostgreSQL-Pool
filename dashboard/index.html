@@ -82,9 +82,24 @@
 
         <div class="row justify-content-between">
 
-            <div class="col bg-dark text-white monitor-item">
+            <div class="col bg-info text-dark monitor-item border">
                 Database Connections:
                 <div id="database_connection_count" class="text-center mt-5 status-number">0</div>
+            </div>
+
+            <div class="col bg-secondary text-white monitor-item">
+                All Queries
+                <div id="all_queries_count" class="text-center mt-5 status-number">0</div>
+            </div>
+
+            <div class="col bg-success text-white monitor-item">
+                Successful Queries
+                <div id="successful_queries_count" class="text-center mt-5 status-number">0</div>
+            </div>
+
+            <div class="col bg-danger text-white monitor-item">
+                Failed Queries
+                <div id="failed_queries_count" class="text-center mt-5 status-number">0</div>
             </div>
 
         </div>
@@ -176,11 +191,22 @@
         {
             this.hideErrorSection();
             this.dashboardElement.style.display = 'block';
-            document.getElementById('received_messages').innerHTML = stats.received_messages;
-            document.getElementById('current_clients').innerHTML = stats.current_clients;
-            document.getElementById('all_connected_clients').innerHTML = stats.all_connected_clients;
-            document.getElementById('all_closed_client').innerHTML = stats.all_closed_client;
-            document.getElementById('database_connection_count').innerHTML = stats.database_connection_count;
+            if (stats.received_messages)
+                document.getElementById('received_messages').innerHTML = stats.received_messages;
+            if (stats.current_clients)
+                document.getElementById('current_clients').innerHTML = stats.current_clients;
+            if (stats.all_connected_clients)
+                document.getElementById('all_connected_clients').innerHTML = stats.all_connected_clients;
+            if (stats.all_closed_client)
+                document.getElementById('all_closed_client').innerHTML = stats.all_closed_client;
+            if (stats.database_connection_count)
+                document.getElementById('database_connection_count').innerHTML = stats.database_connection_count;
+            if (stats.all_queries)
+                document.getElementById('all_queries_count').innerHTML = stats.all_queries;
+            if (stats.successful_queries)
+                document.getElementById('successful_queries_count').innerHTML = stats.successful_queries;
+            if (stats.failed_queries)
+                document.getElementById('failed_queries_count').innerHTML = stats.failed_queries;
         }
 
         onServerError(error) {
