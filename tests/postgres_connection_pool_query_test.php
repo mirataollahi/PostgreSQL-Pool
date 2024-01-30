@@ -22,7 +22,7 @@ $cli = new CliPrinter();
         'full_url' => 'https://basalam.com/cart',
         'created_at' => (new DateTime('now'))->format('Y-m-d H:i:s') ,
     ];
-    $databaseManager = new \App\Database\PostgresConnectionManager();
+    $databaseManager = new \App\Database\ConnectionPool();
     for ($queryId = 1 ; $queryId <= 2 ; $queryId ++){
         \Swoole\Coroutine::create(function () use ($requestData , $databaseManager){
             try {

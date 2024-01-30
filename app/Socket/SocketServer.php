@@ -5,7 +5,10 @@ namespace App\Socket;
 use App\Core\Config;
 use App\Core\UrlHelper;
 use App\Core\UserAgent;
-use App\Database\PostgresConnectionManager;
+use App\Database\AdvanceConnectionPool;
+use App\Database\ConnectionPoolInterface;
+use App\Database\Connector\PDOConnector;
+use App\Database\ConnectionPool;
 use App\Logger\CliLogger;
 use DateTime;
 use Swoole\Atomic;
@@ -51,12 +54,9 @@ class SocketServer
 
     private bool $serverStarted = false;
 
-    /**
-     * The postgres connection manager
-     *
-     * @var PostgresConnectionManager
-     */
-    public PostgresConnectionManager $postgresPool;
+
+    public ConnectionPoolInterface $databasePool;
+
 
     /**
      * Command line logger factory
@@ -86,12 +86,25 @@ class SocketServer
     public function init(): static
     {
         $this->makeSocketServer();
-        $this->postgresPool = new PostgresConnectionManager();
+        $this->createDatabaseConnectionPool();
         $this->receivedMessages = new Atomic(0);
         $this->currentClients = new Atomic(0);
         $this->allConnectedClients = new Atomic(0);
         $this->allClosedClient = new Atomic(0);
         return $this->setEvents();
+    }
+
+    /**
+     * Create database connections pool driver
+     *
+     * @return void
+     */
+    public function createDatabaseConnectionPool():void
+    {
+        $databasePoolDriver = ConnectionPool::class;
+        $databaseConnectorDriver = PDOConnector::class;
+
+        $this->databasePool = new $databasePoolDriver(new $databaseConnectorDriver);
     }
 
     /**
@@ -131,7 +144,7 @@ class SocketServer
      */
     public function onStart(): void
     {
-        $this->postgresPool->initializeConnections();
+        $this->databasePool->init();
         // Display information when the TCP socket server starts.
         $this->cli->display('info', "TCP Socket Server started at " . $this->socketDriver->host . ':' . $this->socketDriver->port);
 
@@ -208,7 +221,7 @@ class SocketServer
                     'full_url' => $urlParser['pure_url'],
                     'created_at' => (new DateTime('now'))->format('Y-m-d H:i:s'),
                 ];
-                $this->postgresPool->saveLinkStatics($requestData);
+                $this->databasePool->saveLinkStatics($requestData);
             });
         }
     }
@@ -223,10 +236,10 @@ class SocketServer
                 'current_clients' => number_format($this->currentClients?->get() ?: 0),
                 'all_connected_clients' => number_format($this->allConnectedClients?->get() ?: 0),
                 'all_closed_client' => number_format($this->allClosedClient?->get() ?: 0),
-                'database_connection_count' => $this->postgresPool->getConnectionCount(),
-                'all_queries' => $this->postgresPool->allQuery->get(),
-                'successful_queries' => $this->postgresPool->successQuery->get(),
-                'failed_queries' => $this->postgresPool->failQuery->get(),
+                'database_connection_count' => $this->databasePool->getConnectionCount(),
+                'all_queries' => $this->databasePool->allQuery->get(),
+                'successful_queries' => $this->databasePool->successQuery->get(),
+                'failed_queries' => $this->databasePool->failQuery->get(),
             ];
         } else $response = ['status' => true,];
         return $response;

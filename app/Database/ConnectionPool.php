@@ -3,13 +3,25 @@
 namespace App\Database;
 
 use App\Core\Config;
+use App\Database\Connector\ConnectorInterface;
 use App\Logger\CliLogger;
 use PDO;
 use Swoole\Atomic;
+use Swoole\Coroutine;
 use Swoole\Coroutine\Channel;
+use WeakMap;
 
-class PostgresConnectionManager
+
+class ConnectionPool implements ConnectionPoolInterface
 {
+    /**
+     * Whether the connection pool is initialized
+     *
+     * @var bool
+     */
+    protected bool $initialized = false;
+
+
     /**
      * The database connections pool
      *
@@ -41,12 +53,27 @@ class PostgresConnectionManager
      */
     private int $maxSize = 16;
 
+    /**
+     * Database connection connector driver
+     *
+     * @var ConnectorInterface
+     */
+    protected ConnectorInterface $connector;
+
+    /**
+     * The last active time of connection
+     *
+     * @var WeakMap
+     */
+    protected WeakMap $lastActiveTime;
+
 
     public Atomic $allQuery;
     public Atomic $successQuery;
     public Atomic $failQuery;
+    public bool $closed = false;
 
-    public function __construct()
+    public function __construct(ConnectorInterface $connector)
     {
         $this->cliPrinter = new CliLogger();
         $this->pool = new Channel($this->maxSize);
@@ -54,18 +81,24 @@ class PostgresConnectionManager
         $this->allQuery = new Atomic(0);
         $this->successQuery = new Atomic(0);
         $this->failQuery = new Atomic(0);
+        $this->lastActiveTime = new WeakMap();
+        $this->connector = $connector;
     }
 
     /**
      * Create Connections and push in connections channel (pool)
      *
-     * @return void
+     * @return bool
      */
-    public function initializeConnections(): void
+    public function init(): bool
     {
-        while ($this->maxSize > $this->connectionCount) {
-            $this->make();
+        if (!$this->initialized) {
+            while ($this->maxSize > $this->connectionCount) {
+                $this->make();
+            }
+            $this->initialized = true;
         }
+        return true;
     }
 
     /**
@@ -77,7 +110,7 @@ class PostgresConnectionManager
     {
         if ($this->connectionCount === 0)
         {
-            $this->initializeConnections();
+            $this->init();
         }
         if ($this->pool->isEmpty() && $this->connectionCount < $this->maxSize) {
             $this->make();
@@ -111,32 +144,38 @@ class PostgresConnectionManager
      */
     public function make(): void
     {
-        $connectionConfig = [
-            'host' => Config::get('DATABASE_HOST'),
-            'port' => Config::get('DATABASE_PORT'),
-            'dbname' => Config::get('DATABASE_NAME'),
-            'charset' => Config::get('DATABASE_CHARSET'),
-            'user' => Config::get('DATABASE_USERNAME'),
-            'password' => Config::get('DATABASE_PASSWORD'),
-        ];
-
         try {
-            $pdo = new PDO(
-                "pgsql:host={$connectionConfig['host']};port={$connectionConfig['port']};dbname={$connectionConfig['dbname']};user={$connectionConfig['user']};password={$connectionConfig['password']}",
-                $connectionConfig['user'],
-                $connectionConfig['password']
-            );
-
-            $this->pool->push($pdo , 3);
+            $connection = $this->createConnection();
+            $this->pool->push($connection , 3);
             $this->connectionCount++;
-        }
-
-        catch (\Exception $exception)
+        } catch (\Exception $exception)
         {
             sleep(5);
             $this->cliPrinter->display('critical' , $exception->getMessage());
         }
     }
+
+    protected function createConnection(): PDO
+    {
+        $this->connectionCount++;
+        $connection = $this->connector->connect();
+        $this->lastActiveTime[$connection] = time();
+        return $connection;
+    }
+
+
+    protected function removeConnection(mixed $connection): void
+    {
+        $this->connectionCount--;
+        Coroutine::create(function () use ($connection) {
+            try {
+                $this->connector->disconnect($connection);
+            } catch (\Throwable $e) {
+                // Ignore this exception.
+            }
+        });
+    }
+
 
     /**
      * Store like statics in database using postgres channel
@@ -148,7 +187,6 @@ class PostgresConnectionManager
     {
         $this->allQuery->add();
         $pdo = $this->getConnection();
-
         if ($pdo)
         {
             try {
@@ -171,22 +209,18 @@ class PostgresConnectionManager
                     return;
                 }
             }
-
             catch (\Exception $exception) {
                 $this->cliPrinter->display('critical' , $exception->getMessage());
                 $isSaved = false;
                 $this->failQuery->add();
                 return;
             }
-
             finally {
-
                 if ( (!$this->isConnectionValid($pdo))  && (!$isSaved) )
                 {
                     unset($pdo);
                     $this->connectionCount--;
-                }
-                else
+                } else
                     $this->releaseConnection($pdo);
             }
         }
@@ -219,5 +253,32 @@ class PostgresConnectionManager
             return false;
         }
 
+    }
+
+    /**
+     * Get the number of idle connections
+     * @return int
+     */
+    public function getIdleCount(): int
+    {
+        return $this->pool->length();
+    }
+
+
+    public function close():bool
+    {
+        $connection = $this->pool->pop($this->timeout);
+        if ($connection !== false) {
+            $this->connector->disconnect($connection);
+        }
+
+        $this->closed = true;
+        $this->pool->close();
+        return true;
+    }
+
+    public function __destruct()
+    {
+        $this->close();
     }
 }
